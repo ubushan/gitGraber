@@ -125,8 +125,6 @@ def notifyTelegram(message):
 
 def toJson(message):
     results_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'results', 'results.log')
-    os.remove(results_path)
-
     data = json.dumps(message[0])
     f = open(results_path, "a")
     f.write(data + "\n")
