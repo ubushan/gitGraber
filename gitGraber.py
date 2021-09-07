@@ -123,6 +123,16 @@ def notifyTelegram(message):
     telegramUrl = "https://api.telegram.org/bot{}/sendMessage".format(config.TELEGRAM_CONFIG.get("token"))
     requests.post(telegramUrl, json={'text': message, 'chat_id': config.TELEGRAM_CONFIG.get("chat_id")})
 
+def toJson(message):
+    results_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'results', 'results.log')
+    os.remove(results_path)
+
+    data = json.dumps(message[0])
+    f = open(results_path, "a")
+    f.write(data + "\n")
+    f.close()
+
+
 def writeToWordlist(content, wordlist):
     f = open(wordlist, 'a+')
     s = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
@@ -148,6 +158,25 @@ def displayResults(result, tokenResult, rawGitUrl, urlInfos):
     else:
         orgString = ''
     return possibleTokenString+'\n'+commitString+'\n'+urlString+'\n'+tokenString+'\n'+repoString+orgString
+
+def displayResultsToDict(result, tokenResult, rawGitUrl, urlInfos):
+    orgString = ""
+    if urlInfos[5]:
+        orgString = urlInfos[5]
+
+    res = []
+    res.append({
+        "possible": tokenResult[result],
+        "commit": urlInfos[2],
+        "commit_timestamp": urlInfos[3],
+        "commit_by": urlInfos[4],
+        "raw_url": rawGitUrl,
+        "token": result,
+        "repo_url": urlInfos[1],
+        "user_org": orgString
+    })
+    return res
+
 
 def parseResults(content):
     data = json.loads(content)
@@ -307,14 +336,20 @@ def doSearchGithub(args,tokenMap, tokenCombos,keyword):
                 tokensResult = checkToken(content[rawGitUrl][0].text, tokenMap, tokenCombos)
                 for token in tokensResult.keys():
                     displayMessage = displayResults(token, tokensResult, rawGitUrl, content[rawGitUrl])
+                    displayMessageDict = displayResultsToDict(token, tokensResult, rawGitUrl, content[rawGitUrl])
                     if args.discord:
                         notifyDiscord(displayMessage)
                     if args.slack:
                         notifySlack(displayMessage)
                     if args.telegram:
                         notifyTelegram(displayMessage)
+                    ### ADD Ubushan 
+                    if args.json:
+                        toJson(displayMessageDict)
+                    ###
                     if args.wordlist:
                         writeToWordlist(rawGitUrl, args.wordlist)
+
 
 def searchGithub(keywordsFile, args):
     tokenMap, tokenCombos = tokens.initTokensMap()
@@ -335,6 +370,7 @@ parser.add_argument('-q', '--query', action='store', dest='query', help='Specify
 parser.add_argument('-d', '--discord', action='store_true', help='Enable discord notifications', default=False)
 parser.add_argument('-s', '--slack', action='store_true', help='Enable slack notifications', default=False)
 parser.add_argument('-tg', '--telegram', action='store_true', help='Enable telegram notifications', default=False)
+parser.add_argument('-j', '--json', action='store_true', help='Enable JSON output', default=False)
 parser.add_argument('-m', '--monitor', action='store_true', help='Monitors your query by adding a cron job for every 30 mins',default=False)
 parser.add_argument('-w', '--wordlist', action='store', dest='wordlist', help='Create a wordlist that fills dynamically with discovered filenames on GitHub')
 args = parser.parse_args()
